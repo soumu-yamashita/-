@@ -37,3 +37,7 @@ DBテストにはDocker、E2EテストにはChromiumが必要です。E2EはAPI�
 - [要件定義](docs/requirements.md)
 - [データベース設計](docs/database-design.md)
 - [Supabase接続・運用手順](docs/supabase-setup.md)
+
+## Vercelへの公開
+
+[デプロイ手順](docs/vercel-deployment.md)を参照してください。Next.js / Node.js 24向けの設定を用意しています。Vercelの認証と通信許可が必要です。Supabase未設定のままではタスクを利用できません。
