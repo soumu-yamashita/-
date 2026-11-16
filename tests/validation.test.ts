@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { taskInput, updateInput, passwordInput } from '../lib/validation';
+import { taskInput, updateInput } from '../lib/validation';
 import { toTask } from '../lib/types';
 const task = { title: '　確認　', description: '', assignee: '00000000-0000-4000-8000-000000000001', due: '2026-11-20', done: false };
 test('タイトルを正規化し、空白のみ・文字数超過を拒否', () => { assert.equal(taskInput.parse(task).title,'確認'); for (const title of ['　 \t', 'a'.repeat(101)]) assert.equal(taskInput.safeParse({...task,title}).success,false); });
 test('実在する日付のみ許可し、過去日を許可', () => { for (const due of ['2026-02-29','2026-13-01','invalid']) assert.equal(taskInput.safeParse({...task,due}).success,false); for (const due of ['2024-02-29','2020-01-01']) assert.equal(taskInput.safeParse({...task,due}).success,true); });
 test('作成者偽装・不正担当者・不正な版を拒否', () => { assert.equal(taskInput.safeParse({...task,created_by:task.assignee}).success,false); assert.equal(taskInput.safeParse({...task,assignee:'unknown'}).success,false); for (const version of [undefined,0,-1,1.5,Number.MAX_SAFE_INTEGER+1]) assert.equal(updateInput.safeParse({...task,id:task.assignee,version}).success,false); });
-test('詳細説明とパスワードの長さを検証', () => { assert.equal(taskInput.safeParse({...task,description:'a'.repeat(5001)}).success,false); assert.equal(passwordInput.safeParse({password:'short'}).success,false); assert.equal(passwordInput.safeParse({password:'long-password-123'}).success,true); });
+test('詳細説明の文字数を検証', () => { assert.equal(taskInput.safeParse({...task,description:'a'.repeat(5001)}).success,false); assert.equal(taskInput.safeParse({...task,description:'a'.repeat(5000)}).success,true); });
 test('DB形式をUI形式に変換し、版を保持', () => { const converted=toTask({id:task.assignee,title:'確認',description:null,assignee_id:task.assignee,due_date:task.due,status:'done',created_at:'2026-11-16T00:00:00Z',version:3}); assert.equal(converted.done,true); assert.equal(converted.description,''); assert.equal(converted.version,3); assert.equal(converted.created,Date.parse('2026-11-16T00:00:00Z')); });

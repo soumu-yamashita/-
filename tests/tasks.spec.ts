@@ -6,7 +6,7 @@ const initial: Task = { id: '00000000-0000-4000-8000-000000000010', title: '新�
 async function mockWorkspace(page: Page) {
   let tasks = [{ ...initial }];
   const writes: Array<Record<string, unknown>> = [];
-  await page.route('**/api/workspace', route => route.fulfill({ json: { userId: me, members: [{ id: me, name: '山下 美咲', active: true }, { id: other, name: '田中 健太', active: true }], tasks } }));
+  await page.route('**/api/workspace', route => route.fulfill({ json: { members: [{ id: me, name: '山下 美咲', active: true }, { id: other, name: '田中 健太', active: true }], tasks } }));
   await page.route('**/api/tasks', async route => { const data = route.request().postDataJSON(); writes.push(data); const row: Task = { ...data, id: data.id ?? crypto.randomUUID(), version: (data.version ?? 0) + 1, created: 2 }; tasks = data.id ? tasks.map(t => t.id === data.id ? row : t) : [...tasks, row]; await route.fulfill({ status: data.id ? 200 : 201, json: row }); });
   return { writes, replace: (task: Task) => { tasks = [task]; } };
 }
@@ -45,8 +45,8 @@ test('モバイルでメニュー・空状態・キャンセル（APIモック�
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.getByRole('button', { name: 'メニューを開く' }).click();
-  await page.getByRole('button', { name: /自分のタスク/ }).click();
-  await expect(page.getByRole('heading', { name: '自分のタスク.' })).toBeVisible();
+  await page.getByRole('button', { name: /すべてのタスク/ }).click();
+  await expect(page.getByRole('heading', { name: 'すべてのタスク.' })).toBeVisible();
   await page.getByRole('textbox', { name: 'タスクを検索' }).fill('該当しない検索');
   await expect(page.getByText('該当するタスクはありません')).toBeVisible();
   await page.getByRole('button', { name: '新規タスク', exact: true }).click();
@@ -65,6 +65,7 @@ test('保存失敗時に入力を維持し、保存中の再送信を防ぐ（AP
   await page.goto('/');
   await page.getByRole('button', { name: '新規タスク', exact: true }).click();
   await page.getByLabel('タスク名').fill('失敗しても残す入力');
+  await page.getByLabel('担当者', { exact: false }).last().selectOption(me);
   await page.getByRole('button', { name: 'タスクを登録', exact: true }).click();
   await expect(page.getByRole('button', { name: '保存中…' })).toBeDisabled();
   release();
@@ -97,31 +98,34 @@ test('接続失敗を空データやローカル保存に置き換えない', as
   await expect(page.getByText('古いローカルタスク')).toHaveCount(0);
 });
 
-test('未認証時にログインへ移動し、認証後に一覧へ（APIモック）', async ({ page }) => {
+test('ログイン不要で直接一覧を開ける（APIモック）', async ({ page }) => {
   await mockWorkspace(page);
-  let loggedIn = false;
-  await page.route('**/api/workspace', route => loggedIn ? route.fallback() : route.fulfill({ status: 401, json: { error: 'ログインしてください。' } }));
-  await page.route('**/api/auth/login', route => { loggedIn = true; return route.fulfill({ json: { ok: true } }); });
+  let authCalls = 0;
+  await page.route('**/api/auth/**', route => { authCalls++; return route.abort(); });
   await page.goto('/');
-  await expect(page).toHaveURL(/\/login$/);
-  await page.getByLabel('メールアドレス').fill('member@example.test');
-  await page.getByLabel('パスワード', { exact: true }).fill('test-password-123');
-  await page.getByRole('button', { name: 'ログイン', exact: true }).click();
   await expect(page.getByRole('button', { name: initial.title, exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'ログアウト' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /自分のタスク/ })).toHaveCount(0);
+  await expect(page.getByLabel('パスワード')).toHaveCount(0);
+  expect(authCalls).toBe(0);
 });
 
-test('招待リンクはフォーム送信で確認し、パスワードを設定（APIモック）', async ({ page }) => {
-  let verified = 0;
-  await page.route('**/auth/confirm', route => { verified++; return route.fulfill({ json: { ok: true } }); });
-  await page.route('**/api/auth/password', route => route.fulfill({ json: { ok: true } }));
-  await page.goto('/password?token_hash=test-token&type=invite');
-  await expect(page).toHaveURL(/\/password$/);
-  expect(verified).toBe(0);
-  await page.getByLabel('新しいパスワード').fill('new-password-1234');
-  await page.getByLabel('パスワード（確認）').fill('new-password-1234');
-  await page.getByRole('button', { name: 'パスワードを保存' }).click();
-  await expect(page).toHaveURL(/\/login\?updated=1$/);
-  expect(verified).toBe(1);
+test('旧ログイン・パスワードURLは一覧へ移動する', async ({ page }) => {
+  await mockWorkspace(page);
+  for (const path of ['/login', '/password', '/auth/confirm?token_hash=old&type=invite']) {
+    await page.goto(path);
+    await expect(page).toHaveURL('http://127.0.0.1:3000/');
+    await expect(page.getByRole('button', { name: initial.title, exact: true })).toBeVisible();
+    await expect(page.getByLabel('パスワード')).toHaveCount(0);
+  }
+});
+
+test('担当者未登録でも一覧を表示し、登録は無効にする', async ({ page }) => {
+  await page.route('**/api/workspace', route => route.fulfill({ json: { members: [], tasks: [] } }));
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'すべてのタスク.' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新規タスク', exact: true })).toBeDisabled();
+  await expect(page.getByText('担当者が未登録です。', { exact: false })).toBeVisible();
 });
 
 test('APIは別オリジンの書き込みを実際のハンドラーで拒否', async ({ request }) => {

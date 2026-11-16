@@ -1,2 +1,2 @@
-import AuthForm from '@/components/auth-form';
-export default function Password() { return <AuthForm password />; }
+import { redirect } from 'next/navigation';
+export default function LegacyPage() { redirect('/'); }

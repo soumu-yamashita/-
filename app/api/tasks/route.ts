@@ -1,10 +1,10 @@
-import { authenticated, ApiError, databaseError, failure, response, sameOrigin } from '@/lib/supabase/server';
+import { supabaseServer, ApiError, databaseError, failure, response, sameOrigin } from '@/lib/supabase/server';
 import { taskInput, updateInput } from '@/lib/validation';
 import { toTask, type TaskRow } from '@/lib/types';
 async function write(request: Request, update: boolean) {
   try {
     sameOrigin(request);
-    const { db } = await authenticated();
+    const db = supabaseServer();
     const json = await request.json().catch(() => { throw new ApiError(400, '入力形式が正しくありません。'); });
     const parsed = (update ? updateInput : taskInput).safeParse(json);
     if (!parsed.success) throw new ApiError(400, 'タスク名・担当者・期限などの入力内容を確認してください。');

@@ -14,7 +14,7 @@
 3. Framework Presetを **Next.js**、Root Directoryをリポジトリ直下にする。Node.jsは **24.x**。Build Commandは `npm run build`、Install Commandは `npm ci`。Output Directoryは上書きしない。
 4. Supabaseが用意済みであれば、下記の環境変数を登録してDeployする。未作成のままDeployした場合、サイトでは接続設定の案内が表示される。
 5. 発行された本番ドメインを確認し、`APP_URL`にそのHTTPS URLを設定する。環境変数を変更した場合は再デプロイする。
-6. ログイン画面と、設定済みのSupabaseを通したタスクの操作を確認する。
+6. ログインなしのタスク一覧と、設定済みのSupabaseを通したタスクの操作を確認する。
 
 VercelとGitHubの連携後は、`main`へのpushを本番デプロイの起点として使える。初回公開後、Git設定でProduction Branchが `main` であることを確認する。
 
@@ -28,9 +28,9 @@ VercelとGitHubの連携後は、`main`へのpushを本番デプロイの起点�
 
 アプリの環境変数はVercel側のProduction環境に登録する。このクラウド環境に登録した値は、自動的にVercelへ同期されない。Preview環境も利用する場合は、開発用Supabaseを分け、アクセスするURLに合うAPP_URLを設定する。
 
-`APP_URL`は書き込みの送信元検証とパスワード再設定リンクの転送先に使う。アプリはこのURLと同じオリジンから利用する。本番で `http://localhost:3000` を設定しない。
+`APP_URL`は書き込みの送信元検証に使う。アプリはこのURLと同じオリジンから利用する。本番で `http://localhost:3000` を設定しない。
 
-SupabaseのSite URLとRedirect URLs、および招待・再設定メールのテンプレートも本番URLに合わせて設定する。[Supabase接続手順](supabase-setup.md)のDB作成・メンバー登録を完了する。
+ログインや招待メールの設定は不要。公開共有モードの追加マイグレーションを適用する。[Supabase接続手順](supabase-setup.md)のDB作成・担当者登録を完了する。
 
 ## このクラウド環境からCLIで公開する場合
 
@@ -50,6 +50,6 @@ SupabaseのSite URLとRedirect URLs、および招待・再設定メールのテ
 2. 既存プロジェクトがないか確認し、同じアプリの重複作成を避ける。
 3. プロジェクトをリンクまたは作成し、Node.js・環境変数を設定する。
 4. `vercel deploy --prod` で公開し、ビルド完了を確認する。
-5. 公開URLのHTTP応答、ログイン画面、Supabaseを通す操作を確認する。Deployment Protectionがある場合は、認証された経路で確認し、保護を解除して回避しない。
+5. 公開URLのHTTP応答、ログインなしの一覧、Supabaseを通す操作を確認する。本番URLでVercel側の認証保護がログインを要求していないことも確認する。今回の公開範囲は「URLを知っている人は誰でも利用可能」である。
 
 トークンはチャット・ソース・ログへ出力しない。`VERCEL_TOKEN`はデプロイツール用で、アプリのVercel環境変数には登録する必要はない。`.vercel/`、`.env.local`、依存関係、ビルド出力はGitに保存しない。
